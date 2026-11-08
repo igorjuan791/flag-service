@@ -12,6 +12,14 @@ COPY requirements.txt .
 # Install dependencies to a local directory
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
+# OpenTelemetry (versões pinadas e compatíveis entre si)
+RUN pip install --no-cache-dir --prefix=/install \
+    opentelemetry-distro==0.48b0 \
+    opentelemetry-exporter-otlp==1.27.0 \
+    opentelemetry-instrumentation-flask==0.48b0 \
+    opentelemetry-instrumentation-psycopg2==0.48b0 \
+    opentelemetry-instrumentation-requests==0.48b0
+
 # --- Final Stage ---
 FROM python:3.11-slim
 
@@ -39,5 +47,14 @@ EXPOSE 8002
 ENV PORT=8002
 ENV PYTHONUNBUFFERED=1
 
+# Configuração OTel (o endpoint vem do Deployment, ver Passo 3)
+ENV OTEL_SERVICE_NAME=flag-service
+ENV OTEL_RESOURCE_ATTRIBUTES=service.namespace=togglemaster,deployment.environment=prod
+ENV OTEL_TRACES_EXPORTER=otlp
+ENV OTEL_METRICS_EXPORTER=otlp
+ENV OTEL_LOGS_EXPORTER=none
+ENV OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+
 # Run the application
-CMD ["gunicorn", "-b", "0.0.0.0:8002", "app:app"]
+#CMD ["gunicorn", "-b", "0.0.0.0:8002", "app:app"]
+CMD ["opentelemetry-instrument", "gunicorn", "-b", "0.0.0.0:8002", "app:app"]
